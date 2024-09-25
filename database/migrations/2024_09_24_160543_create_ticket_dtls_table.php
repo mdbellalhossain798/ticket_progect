@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('ticket_dtls', function (Blueprint $table) {
             $table->id();
             $table->string('reply_details',5000);
-            $table->foreignId('ticket_mst_id')->constrained('ticketMsts')->onDelete('cascade');   
+            $table->foreignId('ticket_mst_id')->constrained('ticket_msts')->onDelete('cascade');   
             $table->unsignedBigInteger('reply_by')->nullable();
             $table->timestamps();
         });

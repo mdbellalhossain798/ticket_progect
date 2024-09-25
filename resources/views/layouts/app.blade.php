@@ -12,10 +12,13 @@
     <!-- Fonts -->
     <link rel="dns-prefetch" href="//fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=Nunito" rel="stylesheet">
-    <link href="{{ mix('css/app.css') }}" rel="stylesheet">
+  
+    <!-- <link href="{{ mix('css/app.css') }}" rel="stylesheet"> -->
     <!-- Scripts -->
     @vite(['resources/sass/app.scss', 'resources/js/app.js'])
+  
 </head>
+
 <body>
     <div id="app">
         <nav class="navbar navbar-expand-md navbar-light bg-white shadow-sm">
@@ -76,8 +79,9 @@
             @yield('content')
         </main>
     </div>
-    
-        <script src="{{ mix('js/app.js') }}"></script>
+   
+   
+        <!-- <script src="{{ mix('js/app.js') }}"></script> -->
     
 </body>
 </html>

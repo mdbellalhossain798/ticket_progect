@@ -24,6 +24,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/admin/dashboard', [TicketController::class, 'index'])->name('admin.dashboard');
     Route::get('/customer/dashboard', [TicketController::class, 'customerDashboard'])->name('customer.dashboard');
     Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
+    Route::get('/customer/get-tickets', [TicketController::class, 'getTickets'])->name('customer.get-tickets');
+    Route::get('/tickets-comment/{id}', [TicketController::class, 'ticketComment'])->name('tickets-comment');
+    Route::post('send-reply',[TicketController::class,'sendRrepy'])->name('send-reply');
     Route::post('customer/save-ticket',[TicketController::class,'saveTicket'])->name('customer.save-ticket');
 });
 
