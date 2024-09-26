@@ -4,9 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\TicketMst;
 use App\Models\TicketDtl;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use DB;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\TicketClosedMail;
+use App\Mail\TicketOpenMail;
 class TicketController extends Controller
 {
     /**
@@ -22,7 +26,12 @@ class TicketController extends Controller
     }
 
     public function getTickets(){
-        $tickets = TicketMst::select('id','subject','ticket_details','ticket_type','open_date','closed_by','closed_date')->where('user_id', auth()->id())->get();
+        $tickets = TicketMst::select('ticket_msts.id','ticket_msts.subject','ticket_msts.ticket_details','ticket_msts.ticket_type','ticket_msts.open_date','ticket_msts.closed_by','ticket_msts.closed_date', 'users.name as closed_by_name')
+        ->leftJoin('users', 'ticket_msts.closed_by', '=', 'users.id')
+        ->where('ticket_msts.user_id', auth()
+        ->id())->orderBy('ticket_msts.id','desc')
+        ->get();
+        // dd($tickets);
             return response()->json([
                 'tickets' => $tickets->map(function($ticket) {
                     return [
@@ -30,16 +39,42 @@ class TicketController extends Controller
                         'ticket_subject' => $ticket->subject,
                         'ticket_details' => $ticket->ticket_details,
                         'status' => ucfirst($ticket->ticket_type),
-                        'open_date' => $ticket->open_date ? date('d/m/Y', strtotime($ticket->open_date)) : null,
+                        'open_date' => $ticket->open_date ? date('d/m/Y h:i a', strtotime($ticket->open_date)) : null,
                         'closed_by' => $ticket->closed_by,
-                        'closed_date' => $ticket->closed_date ? date('d/m/Y', strtotime($ticket->closed_date)) : null,
+                        'closed_by_name' => $ticket->closed_by_name,
+                        'closed_date' => $ticket->closed_date ? date('d/m/Y h:i a', strtotime($ticket->closed_date)) : null,
+                    ];
+                }),
+            ]);
+    }
+    public function getAdminTickets(){
+        $tickets = TicketMst::select('ticket_msts.id','ticket_msts.subject','ticket_msts.ticket_details','ticket_msts.ticket_type','ticket_msts.open_date','ticket_msts.user_id','ticket_msts.closed_by','ticket_msts.closed_date', 'users.name as closed_by_name','open_by.name as open_by')
+        ->leftJoin('users', 'ticket_msts.closed_by', '=', 'users.id')
+        ->leftJoin('users as open_by', 'ticket_msts.user_id', '=', 'open_by.id')
+        // ->where('user_id', auth()->id())
+        ->orderBy('ticket_msts.id','desc')
+        ->get();
+            return response()->json([
+                'tickets' => $tickets->map(function($ticket) {
+                    return [
+                        'id' => $ticket->id,
+                        'ticket_subject' => $ticket->subject,
+                        'ticket_details' => $ticket->ticket_details,
+                        'status' => ucfirst($ticket->ticket_type),
+                        'open_date' => $ticket->open_date ? date('d/m/Y h:i a', strtotime($ticket->open_date)) : null,
+                        'closed_by' => $ticket->closed_by_name,
+                        'user_id' => $ticket->open_by,
+                        'closed_date' => $ticket->closed_date ? date('d/m/Y h:i a', strtotime($ticket->closed_date)) : null,
                     ];
                 }),
             ]);
     }
     public function ticketComment($id){
+        // dd($id);
         $tickets = TicketMst::findOrFail($id);
-        $tickets_comment=$tickets->details;
+        $reply_name=$tickets->user;
+       
+        $tickets_comment=$tickets->details()->orderBy('created_at','asc')->get();
        
             return response()->json([
                 'tickets_comment' => $tickets_comment->map(function($ticket_cmt) {
@@ -47,9 +82,10 @@ class TicketController extends Controller
                         'id' => $ticket_cmt->id,
                         'reply_details' => $ticket_cmt->reply_details,
                         'reply_by' => $ticket_cmt->reply_by,
-                        'created_at' => $ticket_cmt->created_at ? date('d/m/Y', strtotime($ticket_cmt->created_at)) : null,                       
+                        'created_at' => $ticket_cmt->created_at ? date('d/m/Y h:i a', strtotime($ticket_cmt->created_at)) : null,                       
                     ];
                 }),
+                'reply_name'=> $reply_name->name
             ]);
     }
 
@@ -67,13 +103,39 @@ class TicketController extends Controller
                 'user_id'=>Auth::id(),
                 'open_date'=>now()
             ];
-            TicketMst::insert($data);
-            DB::commit();
-            return redirect()->back()->with('message', 'Save successful!');
-        } catch (\Throwable $th) {
+            $ticket = TicketMst::create($data);
             
-            DB::rollBack();
+            $adminEmail = User::where('user_type', 'admin')->first()->email;
+            Mail::to($adminEmail)->send(new TicketOpenMail($ticket));
+            DB::commit();
+            return response()->json(['message' => 'Save successful!']);
+        } catch (\Throwable $th) {            
+            DB::rollBack();          
             return response()->json(['error' => 'Failed to save reply!'], 500);
+        }
+       
+        // dd($request->all());
+    }
+    public function deleteTicket(Request $request){
+        $request->validate([
+            'ticket_id' => 'required',
+        ]);
+        DB::beginTransaction();
+        try {
+            $data=[               
+                'ticket_type'=>'CLOSED',
+                'closed_by'=>Auth::id(),
+                'closed_date'=>now()
+            ];
+            $ticket = TicketMst::where('id', $request->ticket_id)->firstOrFail();
+            $ticket->update($data);
+             // Send email notification after closing the ticket
+            Mail::to($ticket->user->email)->send(new TicketClosedMail($ticket));
+            DB::commit();
+            return response()->json(['message' => 'Closed successful!']);
+        } catch (\Throwable $th) {            
+            DB::rollBack();
+            return response()->json(['error' => 'Failed to Close !'], 500);
         }
        
         // dd($request->all());
@@ -85,22 +147,21 @@ class TicketController extends Controller
            
         ]);
         DB::beginTransaction();
-        try {
+        // try {
             $data=[
                 'reply_details'=>$request->reply,
                 'ticket_mst_id'=>$request->ticket_mst_id,
                 'reply_by'=>Auth::id(),
                 'created_at'=>now()
             ];
-           
-            TicketDtl::insert($data);
+           $reply_data= TicketDtl::create($data);         
             DB::commit();
-            return redirect()->back()->with('message', 'Save successful!');
-        } catch (\Throwable $th) {
+            return response()->json(['message' => 'Save successful!','ticket_id'=>$reply_data->id]);
+        // } catch (\Throwable $th) {
             
-            DB::rollBack();
-            return response()->json(['error' => 'Failed to save reply!'], 500);
-        }
+        //     DB::rollBack();
+        //     return response()->json(['error' => 'Failed to save reply!'], 500);
+        // }
        
         // dd($request->all());
     }

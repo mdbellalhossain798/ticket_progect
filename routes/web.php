@@ -25,8 +25,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/customer/dashboard', [TicketController::class, 'customerDashboard'])->name('customer.dashboard');
     Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
     Route::get('/customer/get-tickets', [TicketController::class, 'getTickets'])->name('customer.get-tickets');
+    Route::get('/admin/get-tickets', [TicketController::class, 'getAdminTickets'])->name('admin.get-tickets');
     Route::get('/tickets-comment/{id}', [TicketController::class, 'ticketComment'])->name('tickets-comment');
     Route::post('send-reply',[TicketController::class,'sendRrepy'])->name('send-reply');
+    Route::post('delete-tickets',[TicketController::class,'deleteTicket'])->name('delete-tickets');
     Route::post('customer/save-ticket',[TicketController::class,'saveTicket'])->name('customer.save-ticket');
 });
 
