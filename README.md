@@ -1,4 +1,4 @@
-composer update
+composer update , 
 create database == "ticketing_system"
 run command "php artisan  migrate"
 
